@@ -4,25 +4,33 @@ import os
 import random
 import numpy as np
 import pandas as pd
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torchvision import models, transforms
+
 from skimage import io
 from PIL import Image
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 from tqdm import tqdm
+
+# 강화 학습을 위한 openai library
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 import gymnasium as gym
 from gymnasium import spaces
+
+
 import copy
 import yaml
 
 from torch.utils.tensorboard import SummaryWriter  # TensorBoard writer
 
+
+#----------------------직접 작성한 파일들------------------
 from load_ISIC2018 import load_ISIC2018_GT
 from dataset_from_df import labeled_dataset_from_path, unlabeled_dataset_from_path
 from model_evaluation import evaluate_model_performance
@@ -69,6 +77,7 @@ num_classes = len(test_df['GT'][0])
 args.num_classes = num_classes
 
 #%% data split for SSL
+#-------labeled set과 unlabeled set을 비율대로 random split---------
 np.random.seed(args.seed)
 train_indexes = np.random.permutation(len(train_df))
 val_indexes = np.random.permutation(len(val_df))
@@ -83,6 +92,7 @@ train_df['labels'] = train_df['labels'].astype(object)
 
 #%% data pre-processing
 
+#--------------- transform을 통해 data augmentation 적용 ---------------------------
 
 train_transform, test_transform  = data_augmentations.get_transform(args)
 
@@ -92,10 +102,11 @@ test_dataset = labeled_dataset_from_path(test_df, test_indexes, transforms=test_
 
 
 #%% data loader
+#--------초기 teacher model을 학습하기 위해 labeled dataset으로 구성된 loader------
 WarmUpTrainLoader = DataLoader(lbl_dataset, 
                   batch_size=args.batch_size,
                   num_workers=args.num_workers)
-
+#------------------------------------------------------------------------
 ValLoader = DataLoader(val_dataset, 
                   batch_size=args.batch_size,
                   num_workers=args.num_workers)
@@ -107,7 +118,7 @@ TestLoader = DataLoader(test_dataset,
 
 
 #%%
-
+#------------------------ 모델 불러오기------------------------
 def create_densenet_model(pretrained, drop_rate, num_classes):
     backbone = densenet.densenet121(pretrained=pretrained, drop_rate=drop_rate)
     in_features = backbone.classifier.in_features 
@@ -122,6 +133,8 @@ teacher_model_dir = os.path.join(exp_dir,"teacher_model")
 SL_log_dir = os.path.join(exp_dir,"SL_log")
 
 #%%
+
+# -------- labeled dataset으로 초기 teacher model 학습 ------------------------ 
 teacher_model = create_densenet_model(pretrained=True, drop_rate=args.drop_rate,num_classes=args.num_classes)
 
 if not os.path.exists(teacher_model_dir):
@@ -228,6 +241,7 @@ if not os.path.exists(teacher_model_dir):
     
 
 #%%
+# ---------------- teacher model evaluation ------------------------
 metrics = ["loss","acc", "F1", "auc"]
 m = 3
 
@@ -240,6 +254,10 @@ test_accuracy, test_f1_score, test_auc = evaluate_model_performance(teacher_mode
 
 
 #%%
+
+""" labeled dataset의 feature map과 confidence 값을 teacher model을 통해 뽑고 저장. 
+데이터 각각의 feature map은 classifier에서 data point로 취급.
+모델은 각 클래스에 대한 확률값 출력 그 중 가장 높은 클래스의 확률 값이 confidence가 된다."""
 
 lbl_test = labeled_dataset_from_path(train_df,lbl_indexes,transforms=test_transform)
 
@@ -273,7 +291,7 @@ for inputs,_, idx in tqdm(lbltest_loader):
 
 
 #%% pseudo-labeling
-
+"""unlabeled data에 대한 feature map, confidence, pseudo-label 저장"""
 PL_train_df = train_df.copy()
 
 ulb_dataset = unlabeled_dataset_from_path(PL_train_df,ulb_indexes,transforms=test_transform)
@@ -311,7 +329,7 @@ for ulb_inputs, ulb_idx in tqdm(UlbLoader):
         PL_train_df.at[idx, 'confidence'] = confidence_np[i]
 
 
-#%% contribution evaluating
+#%% 
 
 
 task_predictor_dir = os.path.join(exp_dir,"task_predictor")
@@ -321,6 +339,7 @@ if not os.path.exists(task_predictor_dir):
 
 
 #%% task predictor
+"""task predictor는  '모델의 성능을 올리는 데이터' 에서 '모델'을 담당"""
 predictor = create_densenet_model(pretrained=False, drop_rate=args.drop_rate,num_classes=args.num_classes)
 
 
@@ -335,6 +354,7 @@ RL_save = os.path.join(exp_dir,"agent")
 RL_log_dir = os.path.join(exp_dir,"RL_log")
 
 # env = data_contribution.PL_data_valuation_env(args, PL_train_df, ulb_indexes, ValLoader, predictor)
+""" ******** pseudo-labeled 데이터의 가치를 측정하는 강화학습 환경(environment) *********"""
 env = data_contribution.Contribuion_Evaluation(args, PL_train_df, ulb_indexes, ValLoader, predictor)
 
 my_env = DummyVecEnv([lambda: env])
@@ -359,7 +379,7 @@ my_env = DummyVecEnv([lambda: env])
 #           device=f"cuda:{controller_gpu}",
 #           verbose=2
 #         )
-
+""" ********데이터 가치를 측정하는 강화학습 알고리즘 ******** """
 agent = PPO(
           env=env,
           learning_rate=args.RL_lr,

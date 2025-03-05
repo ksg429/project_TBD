@@ -15,7 +15,11 @@ from datasets import data_augmentations
 import time
 
 
-
+""" pseudo-labeled data의 가치를 측정하는 강화학습 환경(environment)
+gym에서 env는 크게 reset, step으로 이루어져 있다.
+reset에서는 학습하는 경로(trajectory)를 정의한다.
+step, 즉 각각의 state마다 observed state(다음 state), reward를 정의해줘야 한다.
+"""
 class Contribuion_Evaluation(gym.Env):
     def __init__(self, args, train_df, ulb_indexes, val_loader, predictor):
         super(Contribuion_Evaluation,self).__init__()
@@ -32,11 +36,12 @@ class Contribuion_Evaluation(gym.Env):
         self.num_classes = len(self.train_df.loc[ulb_indexes[0],'labels'])
 
 
-
+        # state의 shape을 정의한다
         self.observation_space = spaces.Box(low=0,high=1,shape=(self.feature_map_size+self.num_classes,),dtype=np.float32)
-        
+        # action의 shape을 정의한다
         self.action_space = spaces.Box(low=0, high=1, shape=(1,), dtype=np.float32)
-
+        
+        # 모델 불러오기
         self.predictor = predictor
         self.optimizer = torch.optim.Adam(
                     self.predictor.parameters(),
@@ -68,13 +73,14 @@ class Contribuion_Evaluation(gym.Env):
     def step(self, action):
         
 
-        
+        # action(데이터를 학습에 넣는다 or 넣지 않는다)을 저장
         self.actions_list.append(action)
         self.num_count += 1
         self.time_steps += 1
         truncated, info = False,{}
-        # if len(self.actions_list) < self.pl_eval.__len__() :
+
         if len(self.actions_list) < len(self.training_idx):
+            # action의 수가 학습에 필요한 정도의 수가 아니라면 reward를 0으로 하고 다음 스텝으로 넘어간다.
              
             reward = 0
             done = False
@@ -82,6 +88,8 @@ class Contribuion_Evaluation(gym.Env):
                     
             return obs, reward, done, truncated, info
         else:
+            """action의 수가 학습하려는 데이터의 수와 같은 경우
+              해당 action값을 통해 데이터를 선별하여 학습에 사용한다."""
             self.val_metric_list = self.val_metric_list[-self.num_window:]
             moving_avg = np.mean(self.val_metric_list)  
             
@@ -203,8 +211,8 @@ class Contribuion_Evaluation(gym.Env):
             
             reward = score - moving_avg
             self.val_metric_list.append(score)    
-           
-            # print(avg_val_loss,val_accuracy,val_f1_score,val_auc)
+            """*************reward의 경우 'validation set에서의 AUC score의 향상하는 정도'로 디자인 한 것이다.
+            이 reward를 어떻게 디자인할 지... 고민해봐야 함.***********"""
    
             done = True   
             obs = np.random.randn(*self.all_feature_maps[0].shape) 

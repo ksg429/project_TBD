@@ -201,6 +201,8 @@ if not os.path.exists(teacher_model_dir):
         all_preds = np.array(all_preds)
         all_probs = np.array(all_probs)
 
+#-----
+##
 
         avg_val_loss = val_loss / len(ValLoader)
         val_accuracy = accuracy_score(all_labels, all_preds)
@@ -354,7 +356,10 @@ RL_save = os.path.join(exp_dir,"agent")
 RL_log_dir = os.path.join(exp_dir,"RL_log")
 
 # env = data_contribution.PL_data_valuation_env(args, PL_train_df, ulb_indexes, ValLoader, predictor)
-""" ******** pseudo-labeled 데이터의 가치를 측정하는 강화학습 환경(environment) *********"""
+""" 
+******** pseudo-labeled 데이터의 가치를 측정하는 강화학습 환경(environment) *********
+models/MPS/data_contribution.py 파일에서 강화학습 환경 참고
+"""
 env = data_contribution.Contribuion_Evaluation(args, PL_train_df, ulb_indexes, ValLoader, predictor)
 
 my_env = DummyVecEnv([lambda: env])
@@ -379,7 +384,11 @@ my_env = DummyVecEnv([lambda: env])
 #           device=f"cuda:{controller_gpu}",
 #           verbose=2
 #         )
-""" ********데이터 가치를 측정하는 강화학습 알고리즘 ******** """
+""" 
+********데이터 가치를 측정하는 강화학습 알고리즘 ******** 
+알고리즘에는 DQN,DDPG,PPO 등이 있으며, 현재까지 알기로는 PPO가 가장 안정적
+강화학습 알고리즘에 대한 비교도 필요할까?
+"""
 agent = PPO(
           env=env,
           learning_rate=args.RL_lr,

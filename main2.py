@@ -71,7 +71,8 @@ with open(config_path, 'w') as f:
 print(f"Arguments saved to {config_path}")
 
 #%% data load
-
+"""pandas library를 통해 image path와 label을 data frame 형태로 저장
+datasets/load_ISIC2018.py 파일 참고"""
 train_df, val_df, test_df = load_ISIC2018_GT(args.data_root)
 num_classes = len(test_df['GT'][0])
 args.num_classes = num_classes
@@ -92,9 +93,16 @@ train_df['labels'] = train_df['labels'].astype(object)
 
 #%% data pre-processing
 
-"""--------------- transform을 통해 data augmentation 적용 ---------------------------"""
+"""--------------- transform을 통해 data augmentation 적용 ---------------------------
+args를 통해 원하는 augmentaation 적용할 수 있도록 정리하고 싶음
+datasets/data_augmentations.py 파일 참고"""
 
 train_transform, test_transform  = data_augmentations.get_transform(args)
+
+"""torch.utils.data.Dataset을 통해 dataset 생성.
+data frame을 통해 image path와 label을 불러오고, 원하는 augmentation 적용 가능
+train/val/test
+labeled/unlabeled data"""
 
 lbl_dataset = labeled_dataset_from_path(train_df,lbl_indexes,transforms=train_transform)
 val_dataset = labeled_dataset_from_path(val_df, val_indexes, transforms=test_transform)

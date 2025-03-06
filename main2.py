@@ -77,7 +77,7 @@ num_classes = len(test_df['GT'][0])
 args.num_classes = num_classes
 
 #%% data split for SSL
-#-------labeled set과 unlabeled set을 비율대로 random split---------
+"""------labeled set과 unlabeled set을 비율대로 random split---------"""
 np.random.seed(args.seed)
 train_indexes = np.random.permutation(len(train_df))
 val_indexes = np.random.permutation(len(val_df))
@@ -92,7 +92,7 @@ train_df['labels'] = train_df['labels'].astype(object)
 
 #%% data pre-processing
 
-#--------------- transform을 통해 data augmentation 적용 ---------------------------
+"""--------------- transform을 통해 data augmentation 적용 ---------------------------"""
 
 train_transform, test_transform  = data_augmentations.get_transform(args)
 
@@ -102,7 +102,7 @@ test_dataset = labeled_dataset_from_path(test_df, test_indexes, transforms=test_
 
 
 #%% data loader
-#--------초기 teacher model을 학습하기 위해 labeled dataset으로 구성된 loader------
+"""-------초기 teacher model을 학습하기 위해 labeled dataset으로 구성된 loader------"""
 WarmUpTrainLoader = DataLoader(lbl_dataset, 
                   batch_size=args.batch_size,
                   num_workers=args.num_workers)
@@ -118,7 +118,7 @@ TestLoader = DataLoader(test_dataset,
 
 
 #%%
-#------------------------ 모델 불러오기------------------------
+"""------------------------ 모델 불러오기------------------------"""
 def create_densenet_model(pretrained, drop_rate, num_classes):
     backbone = densenet.densenet121(pretrained=pretrained, drop_rate=drop_rate)
     in_features = backbone.classifier.in_features 
@@ -134,7 +134,7 @@ SL_log_dir = os.path.join(exp_dir,"SL_log")
 
 #%%
 
-# -------- labeled dataset으로 초기 teacher model 학습 ------------------------ 
+""" -------- labeled dataset으로 초기 teacher model 학습 ------------------------ """
 teacher_model = create_densenet_model(pretrained=True, drop_rate=args.drop_rate,num_classes=args.num_classes)
 
 if not os.path.exists(teacher_model_dir):
@@ -201,8 +201,6 @@ if not os.path.exists(teacher_model_dir):
         all_preds = np.array(all_preds)
         all_probs = np.array(all_probs)
 
-#-----
-##
 
         avg_val_loss = val_loss / len(ValLoader)
         val_accuracy = accuracy_score(all_labels, all_preds)
@@ -243,7 +241,7 @@ if not os.path.exists(teacher_model_dir):
     
 
 #%%
-# ---------------- teacher model evaluation ------------------------
+"""---------------- teacher model evaluation ------------------------"""
 metrics = ["loss","acc", "F1", "auc"]
 m = 3
 

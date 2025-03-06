@@ -36,9 +36,9 @@ class Contribuion_Evaluation(gym.Env):
         self.num_classes = len(self.train_df.loc[ulb_indexes[0],'labels'])
 
 
-        # state의 shape을 정의한다
+        """state의 shape을 정의한다"""
         self.observation_space = spaces.Box(low=0,high=1,shape=(self.feature_map_size+self.num_classes,),dtype=np.float32)
-        # action의 shape을 정의한다
+        """action의 shape을 정의한다"""
         self.action_space = spaces.Box(low=0, high=1, shape=(1,), dtype=np.float32)
         
         # 모델 불러오기
@@ -73,14 +73,14 @@ class Contribuion_Evaluation(gym.Env):
     def step(self, action):
         
 
-        # action(데이터를 학습에 넣는다 or 넣지 않는다)을 저장
+        """action(데이터를 학습에 넣는다 or 넣지 않는다)을 저장"""
         self.actions_list.append(action)
         self.num_count += 1
         self.time_steps += 1
         truncated, info = False,{}
 
         if len(self.actions_list) < len(self.training_idx):
-            # action의 수가 학습에 필요한 정도의 수가 아니라면 reward를 0으로 하고 다음 스텝으로 넘어간다.
+            """action의 수가 학습에 필요한 정도의 수가 아니라면 reward를 0으로 하고 다음 스텝으로 넘어간다."""
              
             reward = 0
             done = False
@@ -93,6 +93,7 @@ class Contribuion_Evaluation(gym.Env):
             self.val_metric_list = self.val_metric_list[-self.num_window:]
             moving_avg = np.mean(self.val_metric_list)  
             
+            """train data frame에 각각에 데이터에 대한 action을 'contribution'이란 이름으로 저장한다"""
             self.train_df.loc[self.training_idx,'contribution'] = self.actions_list
             for i, idx in enumerate(self.training_idx):
                 self.train_df.at[idx, 'contributions'].append(self.actions_list[i].item())
@@ -104,10 +105,12 @@ class Contribuion_Evaluation(gym.Env):
             ############################train############################################
             self.predictor.to(self.device)
             self.predictor.train() 
-            for epoch in range(self.args.mini_num_epochs):     
+            """mini num epoch만큼 학습"""    
+            for epoch in range(self.args.mini_num_epochs): 
                 for inputs, pseudo_labels, idx in pl_loader:
                     data_contribution = torch.tensor(self.train_df.loc[idx.tolist(), 'contribution'].tolist(), device=self.device)
                     # action_mask = torch.bernoulli(data_contribution).reshape(-1, 1, 1) 
+                    """data_contribution(action)에 있는 확률로 데이터를 학습에 사용할지 말지 결정하는 mask 생성"""
                     action_mask = torch.bernoulli(data_contribution)
                     # print(torch.bernoulli(data_contribution).shape)
 
@@ -250,7 +253,7 @@ class Contribuion_Evaluation(gym.Env):
         raise NotImplemented
 
 
-
+"""밑에는 그냥 이것 저것 해본 것 """
 
 class PL_data_valuation_env(gym.Env):
     def __init__(self, args, train_df, ulb_indexes, val_loader, predictor):
